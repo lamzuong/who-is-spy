@@ -20,7 +20,9 @@ export function ResultScreen({
   onNextRound,
 }: ResultScreenProps) {
   const isHost = room.hostPlayerId === playerId;
-  const spyPlayer = room.players.find((player) => player.id === result?.spyPlayerId);
+  const spyPlayers = room.players.filter((player) =>
+    result?.spyPlayerIds.includes(player.id)
+  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -40,7 +42,11 @@ export function ResultScreen({
         <div className="space-y-4">
           <div className="rounded-3xl bg-night px-6 py-5 text-white">
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Spy revealed</p>
-            <h3 className="mt-2 text-3xl font-semibold">{spyPlayer?.name || 'Unknown'}</h3>
+            <h3 className="mt-2 text-3xl font-semibold">
+              {spyPlayers.length > 0
+                ? spyPlayers.map((player) => player.name).join(', ')
+                : 'Unknown'}
+            </h3>
             <p className="mt-2 text-sm text-slate-300">
               Your role was {privateInfo?.role || 'unknown'} with the word{' '}
               <span className="font-semibold text-aqua">{privateInfo?.word || 'n/a'}</span>.

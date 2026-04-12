@@ -13,6 +13,14 @@ export interface RoomActionPayload {
   roomCode: string;
 }
 
+export interface UpdateRoomSettingsPayload extends RoomActionPayload {
+  settings: {
+    civilianWord?: string;
+    spyWord?: string;
+    spyCount?: number | null;
+  };
+}
+
 export interface VotePayload extends RoomActionPayload {
   targetPlayerId: string;
 }
@@ -40,7 +48,7 @@ export interface VoteUpdateEvent {
 }
 
 export interface RoundResultEvent {
-  spyPlayerId: string | null;
+  spyPlayerIds: string[];
   winnerSide: WinnerSide;
   voteBreakdown: VoteBreakdownItem[];
 }

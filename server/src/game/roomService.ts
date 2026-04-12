@@ -16,12 +16,21 @@ import type {
   Player,
   PrivateRoundInfo,
   PublicRoomState,
+  RoundSettings,
   Role,
   Room,
   RoundState,
   VoteBreakdownItem,
 } from '../types/game.js';
 import { generateId, generateRoomCode, pickRandom, shuffle } from '../utils/id.js';
+
+function getDefaultRoomSettings(): RoundSettings {
+  return {
+    civilianWord: '',
+    spyWord: '',
+    spyCount: null,
+  };
+}
 
 function createPlayer(input: {
   name: string;
@@ -44,15 +53,53 @@ function createLobbyRound(previousRoundNumber = 0): RoundState {
   return {
     roundNumber: previousRoundNumber,
     phase: GAME_PHASES.LOBBY,
-    spyPlayerId: null,
+    spyPlayerIds: [],
     civilianWord: null,
     spyWord: null,
+    spyCount: 1,
     speakingOrder: [],
     currentTurnIndex: -1,
     votes: [],
-    revealedSpyId: null,
+    revealedSpyIds: [],
     winnerSide: null,
   };
+}
+
+function getMaxSpyCount(playerCount: number): number {
+  return Math.max(1, Math.min(playerCount - 2, Math.floor(playerCount / 3) || 1));
+}
+
+function normalizeRoundSettings(room: Room, input?: Partial<RoundSettings>): RoundSettings {
+  const merged: RoundSettings = {
+    civilianWord: input?.civilianWord?.trim() ?? room.settings.civilianWord,
+    spyWord: input?.spyWord?.trim() ?? room.settings.spyWord,
+    spyCount: input?.spyCount ?? room.settings.spyCount,
+  };
+
+  if ((merged.civilianWord && !merged.spyWord) || (!merged.civilianWord && merged.spyWord)) {
+    throw new Error('Set both civilian and spy words together, or leave both empty.');
+  }
+
+  if (
+    merged.civilianWord &&
+    merged.spyWord &&
+    merged.civilianWord.toLowerCase() === merged.spyWord.toLowerCase()
+  ) {
+    throw new Error('Civilian and spy words must be different.');
+  }
+
+  if (merged.spyCount !== null) {
+    if (!Number.isInteger(merged.spyCount) || merged.spyCount < 1) {
+      throw new Error('Spy count must be a whole number greater than 0.');
+    }
+
+    const maxSpyCount = getMaxSpyCount(getActivePlayers(room).length || room.players.length);
+    if (merged.spyCount > maxSpyCount) {
+      throw new Error(`Spy count is too high for this room. Maximum allowed is ${maxSpyCount}.`);
+    }
+  }
+
+  return merged;
 }
 
 function ensureRoomExists(roomCode: string): Room {
@@ -110,14 +157,14 @@ function buildVoteBreakdown(room: Room): VoteBreakdownItem[] {
 }
 
 function assignScores(room: Room): void {
-  const spyId = room.round.spyPlayerId;
+  const spyIds = new Set(room.round.spyPlayerIds);
 
   room.players.forEach((player) => {
-    if (room.round.winnerSide === 'civilians' && player.id !== spyId) {
+    if (room.round.winnerSide === 'civilians' && !spyIds.has(player.id)) {
       player.score += 1;
     }
 
-    if (room.round.winnerSide === 'spy' && player.id === spyId) {
+    if (room.round.winnerSide === 'spy' && spyIds.has(player.id)) {
       player.score += 2;
     }
   });
@@ -146,15 +193,15 @@ function resolveVotes(room: Room) {
   });
 
   const spyCaught =
-    topCandidates.length === 1 && topCandidates[0] === room.round.spyPlayerId;
+    topCandidates.length === 1 && room.round.spyPlayerIds.includes(topCandidates[0]);
 
   room.round.phase = GAME_PHASES.RESULT;
-  room.round.revealedSpyId = room.round.spyPlayerId;
+  room.round.revealedSpyIds = [...room.round.spyPlayerIds];
   room.round.winnerSide = spyCaught ? 'civilians' : 'spy';
   assignScores(room);
 
   return {
-    spyPlayerId: room.round.spyPlayerId,
+    spyPlayerIds: [...room.round.spyPlayerIds],
     winnerSide: room.round.winnerSide,
     voteBreakdown: buildVoteBreakdown(room),
   };
@@ -180,6 +227,7 @@ export function toPublicRoomState(room: Room): PublicRoomState {
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
     canStartGame: getActivePlayers(room).length >= MIN_PLAYERS_TO_START,
+    settings: room.settings,
     players: room.players.map((player) => ({
       id: player.id,
       name: player.name,
@@ -190,13 +238,14 @@ export function toPublicRoomState(room: Room): PublicRoomState {
     round: {
       roundNumber: room.round.roundNumber,
       phase: room.round.phase,
+      spyCount: room.round.spyCount,
       speakingOrder: room.round.speakingOrder,
       currentTurnIndex: room.round.currentTurnIndex,
       currentTurnPlayerId,
       votesReceived: room.round.votes.length,
       totalEligibleVoters: getEligibleVoters(room).length,
-      revealedSpyId:
-        room.round.phase === GAME_PHASES.RESULT ? room.round.revealedSpyId : null,
+      revealedSpyIds:
+        room.round.phase === GAME_PHASES.RESULT ? room.round.revealedSpyIds : [],
       winnerSide:
         room.round.phase === GAME_PHASES.RESULT ? room.round.winnerSide : null,
     },
@@ -226,6 +275,7 @@ export function createRoom(input: { playerName: string; socketId: string }) {
     code: roomCode,
     hostPlayerId: host.id,
     players: [host],
+    settings: getDefaultRoomSettings(),
     round: createLobbyRound(),
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -291,20 +341,26 @@ export function startGame(input: { roomCode: string; playerId: string | null }) 
     throw new Error(`At least ${MIN_PLAYERS_TO_START} players are required to start.`);
   }
 
+  const selectedSettings = normalizeRoundSettings(room);
   const wordPair = pickRandom(WORD_PAIRS);
   const speakingOrder = shuffle(activePlayers.map((player) => player.id));
-  const spyPlayerId = pickRandom(activePlayers).id;
+  const maxSpyCount = getMaxSpyCount(activePlayers.length);
+  const spyCount = selectedSettings.spyCount ?? 1;
+  const spyPlayerIds = shuffle(activePlayers.map((player) => player.id)).slice(0, spyCount);
+  const civilianWord = selectedSettings.civilianWord || wordPair.civilian;
+  const spyWord = selectedSettings.spyWord || wordPair.spy;
 
   room.round = {
     roundNumber: room.round.roundNumber + 1,
     phase: GAME_PHASES.SPEAKING,
-    spyPlayerId,
-    civilianWord: wordPair.civilian,
-    spyWord: wordPair.spy,
+    spyPlayerIds,
+    civilianWord,
+    spyWord,
+    spyCount,
     speakingOrder,
     currentTurnIndex: 0,
     votes: [],
-    revealedSpyId: null,
+    revealedSpyIds: [],
     winnerSide: null,
   };
 
@@ -317,7 +373,7 @@ export function getPrivateRoundInfo(room: Room, playerId: string): PrivateRoundI
     return null;
   }
 
-  const role: Role = room.round.spyPlayerId === playerId ? 'spy' : 'civilian';
+  const role: Role = room.round.spyPlayerIds.includes(playerId) ? 'spy' : 'civilian';
 
   return {
     playerId,
@@ -400,7 +456,25 @@ export function prepareNextRound(input: { roomCode: string; playerId: string | n
   const room = ensureRoomExists(input.roomCode);
   ensureHost(room, input.playerId);
 
+  room.settings = getDefaultRoomSettings();
   room.round = createLobbyRound(room.round.roundNumber);
+  saveRoom(room);
+  return room;
+}
+
+export function updateRoomSettings(input: {
+  roomCode: string;
+  playerId: string | null;
+  settings: Partial<RoundSettings>;
+}) {
+  const room = ensureRoomExists(input.roomCode);
+  ensureHost(room, input.playerId);
+
+  if (room.round.phase !== GAME_PHASES.LOBBY) {
+    throw new Error('Room settings can only be changed in the lobby.');
+  }
+
+  room.settings = normalizeRoundSettings(room, input.settings);
   saveRoom(room);
   return room;
 }

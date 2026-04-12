@@ -11,12 +11,14 @@ import {
   startGame,
   submitVote,
   toPublicRoomState,
+  updateRoomSettings,
 } from '../game/roomService.js';
 import { getPlayerIdBySocket } from '../store/roomStore.js';
 import type {
   CreateRoomPayload,
   JoinRoomPayload,
   RoomActionPayload,
+  UpdateRoomSettingsPayload,
   VotePayload,
 } from '../types/socket.js';
 import type { Room } from '../types/game.js';
@@ -94,6 +96,19 @@ export function registerGameHandlers(io: Server): void {
         emitError(socket, error);
       }
     });
+
+    socket.on(
+      SOCKET_EVENTS.UPDATE_ROOM_SETTINGS,
+      ({ roomCode, settings }: UpdateRoomSettingsPayload) => {
+        try {
+          const playerId = getPlayerIdBySocket(socket.id);
+          const room = updateRoomSettings({ roomCode, playerId, settings });
+          emitRoomState(io, room);
+        } catch (error) {
+          emitError(socket, error);
+        }
+      }
+    );
 
     socket.on(SOCKET_EVENTS.NEXT_TURN, ({ roomCode }: RoomActionPayload) => {
       try {

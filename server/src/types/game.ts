@@ -4,6 +4,12 @@ export type WinnerSide = 'civilians' | 'spy' | null;
 
 export type Role = 'civilian' | 'spy';
 
+export interface RoundSettings {
+  civilianWord: string;
+  spyWord: string;
+  spyCount: number | null;
+}
+
 export interface Player {
   id: string;
   socketId: string;
@@ -22,13 +28,14 @@ export interface Vote {
 export interface RoundState {
   roundNumber: number;
   phase: GamePhase;
-  spyPlayerId: string | null;
+  spyPlayerIds: string[];
   civilianWord: string | null;
   spyWord: string | null;
+  spyCount: number;
   speakingOrder: string[];
   currentTurnIndex: number;
   votes: Vote[];
-  revealedSpyId: string | null;
+  revealedSpyIds: string[];
   winnerSide: WinnerSide;
 }
 
@@ -36,6 +43,7 @@ export interface Room {
   code: string;
   hostPlayerId: string;
   players: Player[];
+  settings: RoundSettings;
   round: RoundState;
   createdAt: number;
   updatedAt: number;
@@ -52,12 +60,13 @@ export interface PublicPlayer {
 export interface PublicRoundState {
   roundNumber: number;
   phase: GamePhase;
+  spyCount: number;
   speakingOrder: string[];
   currentTurnIndex: number;
   currentTurnPlayerId: string | null;
   votesReceived: number;
   totalEligibleVoters: number;
-  revealedSpyId: string | null;
+  revealedSpyIds: string[];
   winnerSide: WinnerSide;
 }
 
@@ -67,6 +76,7 @@ export interface PublicRoomState {
   createdAt: number;
   updatedAt: number;
   canStartGame: boolean;
+  settings: RoundSettings;
   players: PublicPlayer[];
   round: PublicRoundState;
 }

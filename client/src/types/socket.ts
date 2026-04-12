@@ -18,7 +18,7 @@ export interface VoteUpdateEvent {
 }
 
 export interface RoundResultEvent {
-  spyPlayerId: string | null;
+  spyPlayerIds: string[];
   winnerSide: WinnerSide;
   voteBreakdown: VoteBreakdownItem[];
 }

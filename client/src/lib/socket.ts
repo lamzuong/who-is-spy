@@ -1,6 +1,8 @@
 import { io, type Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SERVER_URL;
+const SOCKET_URL =
+  import.meta.env.VITE_SERVER_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3001' : undefined);
 
 export const socket: Socket = io(SOCKET_URL, {
   autoConnect: false,
@@ -10,6 +12,7 @@ export const SOCKET_EVENTS = {
   CREATE_ROOM: 'create_room',
   JOIN_ROOM: 'join_room',
   START_GAME: 'start_game',
+  UPDATE_ROOM_SETTINGS: 'update_room_settings',
   NEXT_TURN: 'next_turn',
   SUBMIT_VOTE: 'submit_vote',
   NEXT_ROUND: 'next_round',

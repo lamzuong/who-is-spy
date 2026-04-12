@@ -7,7 +7,7 @@ import { LobbyScreen } from './features/lobby/LobbyScreen';
 import { ResultScreen } from './features/result/ResultScreen';
 import { VotingScreen } from './features/voting/VotingScreen';
 import { SOCKET_EVENTS, socket } from './lib/socket';
-import type { PrivateRoundInfo, PublicRoomState } from './types/game';
+import type { PrivateRoundInfo, PublicRoomState, RoundSettings } from './types/game';
 import type {
   AppState,
   GameStartedEvent,
@@ -141,6 +141,15 @@ export default function App() {
     }
   };
 
+  const updateRoomSettings = (settings: RoundSettings) => {
+    if (state.room) {
+      socket.emit(SOCKET_EVENTS.UPDATE_ROOM_SETTINGS, {
+        roomCode: state.room.code,
+        settings,
+      });
+    }
+  };
+
   const nextTurn = () => {
     if (state.room) {
       socket.emit(SOCKET_EVENTS.NEXT_TURN, { roomCode: state.room.code });
@@ -213,7 +222,12 @@ export default function App() {
         ) : null}
 
         {room?.round.phase === 'lobby' ? (
-          <LobbyScreen room={room} playerId={state.playerId || ''} onStartGame={startGame} />
+          <LobbyScreen
+            room={room}
+            playerId={state.playerId || ''}
+            onStartGame={startGame}
+            onUpdateSettings={updateRoomSettings}
+          />
         ) : null}
 
         {room?.round.phase === 'speaking' ? (
