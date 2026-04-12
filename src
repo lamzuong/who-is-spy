@@ -1,19 +1,27 @@
-components/
-game.js
-player.js
-turn.js
-containers/
-room.js
-game.js
-utils/
-data.js
-api/
-createRoom.js
-joinRoom.js
-startGame.js
-submitDescription.js
-socket/
-playerJoined.js
-gameStarted.js
-turnUpdated.js
-spyRevealed.js
+import React from 'react';
+import { useState } from 'react';
+
+const Game = () => {
+  const [roomCode, setRoomCode] = useState('');
+  const [players, setPlayers] = useState([]);
+  const [turnOrder, setTurnOrder] = useState([]);
+
+  return (
+    <div>
+      <h1>Who is the Spy?</h1>
+      <p>Room Code: {roomCode}</p>
+      <ul>
+        {players.map((player) => (
+          <li key={player.name}>{player.name}</li>
+        ))}
+      </ul>
+      <ol>
+        {turnOrder.map((turn, index) => (
+          <li key={index}>{turn}</li>
+        ))}
+      </ol>
+    </div>
+  );
+};
+
+export default Game;
