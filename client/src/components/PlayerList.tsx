@@ -20,7 +20,7 @@ export function PlayerList({
 }: PlayerListProps) {
   return (
     <div className="space-y-3">
-      {players.map((player, index) => {
+      {players.map((player) => {
         const isClickable = Boolean(onSelectPlayer) && !disabled;
         const isSelected = selectedPlayerId === player.id;
         const isCurrent = currentTurnPlayerId === player.id;
@@ -38,8 +38,11 @@ export function PlayerList({
             } ${!isClickable ? 'cursor-default' : ''}`}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
-                {index + 1}
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl"
+                aria-hidden
+              >
+                {player.avatar}
               </div>
               <div>
                 <div className="flex items-center gap-2">

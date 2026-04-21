@@ -8,12 +8,14 @@ export interface RoundSettings {
   civilianWord: string;
   spyWord: string;
   spyCount: number | null;
+  category: string | null;
 }
 
 export interface Player {
   id: string;
   socketId: string;
   name: string;
+  avatar: string;
   roomCode: string;
   isHost: boolean;
   connected: boolean;
@@ -23,6 +25,15 @@ export interface Player {
 export interface Vote {
   voterId: string;
   targetPlayerId: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  avatar: string;
+  message: string;
+  timestamp: number;
 }
 
 export interface RoundState {
@@ -37,6 +48,7 @@ export interface RoundState {
   votes: Vote[];
   revealedSpyIds: string[];
   winnerSide: WinnerSide;
+  chatMessages: ChatMessage[];
 }
 
 export interface Room {
@@ -52,6 +64,7 @@ export interface Room {
 export interface PublicPlayer {
   id: string;
   name: string;
+  avatar: string;
   isHost: boolean;
   connected: boolean;
   score: number;
@@ -68,6 +81,7 @@ export interface PublicRoundState {
   totalEligibleVoters: number;
   revealedSpyIds: string[];
   winnerSide: WinnerSide;
+  chatMessages: ChatMessage[];
 }
 
 export interface PublicRoomState {
@@ -90,7 +104,7 @@ export interface PrivateRoundInfo {
 export interface WordPair {
   civilian: string;
   spy: string;
-  category?: string;
+  category: string;
 }
 
 export interface VoteBreakdownItem {

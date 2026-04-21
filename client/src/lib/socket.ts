@@ -17,6 +17,7 @@ export const SOCKET_EVENTS = {
   SUBMIT_VOTE: 'submit_vote',
   NEXT_ROUND: 'next_round',
   LEAVE_ROOM: 'leave_room',
+  SEND_CHAT_MESSAGE: 'send_chat_message',
   ROOM_STATE: 'room_state',
   GAME_STARTED: 'game_started',
   PRIVATE_WORD: 'private_word',

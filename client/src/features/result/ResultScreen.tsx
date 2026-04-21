@@ -42,11 +42,20 @@ export function ResultScreen({
         <div className="space-y-4">
           <div className="rounded-3xl bg-night px-6 py-5 text-white">
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Spy revealed</p>
-            <h3 className="mt-2 text-3xl font-semibold">
-              {spyPlayers.length > 0
-                ? spyPlayers.map((player) => player.name).join(', ')
-                : 'Unknown'}
-            </h3>
+            {spyPlayers.length > 0 ? (
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                {spyPlayers.map((player) => (
+                  <div key={player.id} className="flex items-center gap-2">
+                    <span className="text-3xl" aria-hidden>
+                      {player.avatar}
+                    </span>
+                    <span className="text-3xl font-semibold">{player.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <h3 className="mt-2 text-3xl font-semibold">Unknown</h3>
+            )}
             <p className="mt-2 text-sm text-slate-300">
               Your role was {privateInfo?.role || 'unknown'} with the word{' '}
               <span className="font-semibold text-aqua">{privateInfo?.word || 'n/a'}</span>.
@@ -61,20 +70,26 @@ export function ResultScreen({
 
       <Panel title="Vote breakdown" subtitle="Scores persist across rounds in this room.">
         <div className="space-y-3">
-          {result?.voteBreakdown.map((item) => (
-            <div
-              key={item.playerId}
-              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3"
-            >
-              <div>
-                <p className="font-medium text-night">{item.playerName}</p>
-                <p className="text-sm text-slate-500">
-                  Score: {room.players.find((player) => player.id === item.playerId)?.score || 0}
-                </p>
+          {result?.voteBreakdown.map((item) => {
+            const player = room.players.find((entry) => entry.id === item.playerId);
+            return (
+              <div
+                key={item.playerId}
+                className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl" aria-hidden>
+                    {player?.avatar}
+                  </span>
+                  <div>
+                    <p className="font-medium text-night">{item.playerName}</p>
+                    <p className="text-sm text-slate-500">Score: {player?.score || 0}</p>
+                  </div>
+                </div>
+                <Badge tone="neutral">{item.votes} votes</Badge>
               </div>
-              <Badge tone="neutral">{item.votes} votes</Badge>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Panel>
     </div>

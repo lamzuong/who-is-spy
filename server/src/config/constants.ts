@@ -17,6 +17,7 @@ export const SOCKET_EVENTS = {
   SUBMIT_VOTE: 'submit_vote',
   NEXT_ROUND: 'next_round',
   LEAVE_ROOM: 'leave_room',
+  SEND_CHAT_MESSAGE: 'send_chat_message',
   ROOM_STATE: 'room_state',
   GAME_STARTED: 'game_started',
   PRIVATE_WORD: 'private_word',
@@ -29,3 +30,21 @@ export const SOCKET_EVENTS = {
 
 export const MIN_PLAYERS_TO_START = 3;
 export const ROOM_CODE_LENGTH = 5;
+export const MAX_CHAT_MESSAGE_LENGTH = 240;
+
+export const AVATAR_OPTIONS = [
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐸',
+  '🦁',
+  '🐯',
+  '🐨',
+  '🐰',
+  '🐱',
+  '🐶',
+  '🦄',
+  '🐵',
+] as const;
+
+export const DEFAULT_AVATAR = AVATAR_OPTIONS[0];

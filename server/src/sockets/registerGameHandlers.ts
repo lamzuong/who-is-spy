@@ -8,6 +8,7 @@ import {
   leaveRoom,
   prepareNextRound,
   removePlayerBySocket,
+  sendChatMessage,
   startGame,
   submitVote,
   toPublicRoomState,
@@ -18,6 +19,7 @@ import type {
   CreateRoomPayload,
   JoinRoomPayload,
   RoomActionPayload,
+  SendChatMessagePayload,
   UpdateRoomSettingsPayload,
   VotePayload,
 } from '../types/socket.js';
@@ -52,9 +54,9 @@ function emitError(socket: Socket, error: unknown): void {
 
 export function registerGameHandlers(io: Server): void {
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
-    socket.on(SOCKET_EVENTS.CREATE_ROOM, ({ playerName }: CreateRoomPayload) => {
+    socket.on(SOCKET_EVENTS.CREATE_ROOM, ({ playerName, avatar }: CreateRoomPayload) => {
       try {
-        const { room, player } = createRoom({ playerName, socketId: socket.id });
+        const { room, player } = createRoom({ playerName, avatar, socketId: socket.id });
         socket.join(room.code);
         socket.emit(SOCKET_EVENTS.ROOM_STATE, {
           room: toPublicRoomState(room),
@@ -65,9 +67,14 @@ export function registerGameHandlers(io: Server): void {
       }
     });
 
-    socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ playerName, roomCode }: JoinRoomPayload) => {
+    socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ playerName, roomCode, avatar }: JoinRoomPayload) => {
       try {
-        const { room, player } = joinRoom({ playerName, roomCode, socketId: socket.id });
+        const { room, player } = joinRoom({
+          playerName,
+          roomCode,
+          avatar,
+          socketId: socket.id,
+        });
         socket.join(room.code);
         emitRoomState(io, room);
         socket.emit(SOCKET_EVENTS.ROOM_STATE, {
@@ -153,6 +160,19 @@ export function registerGameHandlers(io: Server): void {
         emitError(socket, error);
       }
     });
+
+    socket.on(
+      SOCKET_EVENTS.SEND_CHAT_MESSAGE,
+      ({ roomCode, message }: SendChatMessagePayload) => {
+        try {
+          const playerId = getPlayerIdBySocket(socket.id);
+          const room = sendChatMessage({ roomCode, playerId, message });
+          emitRoomState(io, room);
+        } catch (error) {
+          emitError(socket, error);
+        }
+      }
+    );
 
     socket.on(SOCKET_EVENTS.NEXT_ROUND, ({ roomCode }: RoomActionPayload) => {
       try {

@@ -2,11 +2,13 @@ import type { PrivateRoundInfo, PublicRoomState, VoteBreakdownItem, WinnerSide }
 
 export interface CreateRoomPayload {
   playerName: string;
+  avatar?: string;
 }
 
 export interface JoinRoomPayload {
   playerName: string;
   roomCode: string;
+  avatar?: string;
 }
 
 export interface RoomActionPayload {
@@ -18,11 +20,16 @@ export interface UpdateRoomSettingsPayload extends RoomActionPayload {
     civilianWord?: string;
     spyWord?: string;
     spyCount?: number | null;
+    category?: string | null;
   };
 }
 
 export interface VotePayload extends RoomActionPayload {
   targetPlayerId: string;
+}
+
+export interface SendChatMessagePayload extends RoomActionPayload {
+  message: string;
 }
 
 export interface RoomStateEvent {

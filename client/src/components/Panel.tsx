@@ -1,7 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 
 interface PanelProps extends PropsWithChildren {
-  title?: string;
+  title?: ReactNode;
   subtitle?: string;
   action?: ReactNode;
   className?: string;

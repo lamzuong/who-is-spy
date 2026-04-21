@@ -1,9 +1,12 @@
 import {
+  AVATAR_OPTIONS,
+  DEFAULT_AVATAR,
   GAME_PHASES,
+  MAX_CHAT_MESSAGE_LENGTH,
   MIN_PLAYERS_TO_START,
   ROOM_CODE_LENGTH,
 } from '../config/constants.js';
-import { WORD_PAIRS } from './wordPairs.js';
+import { CATEGORIES, WORD_PAIRS } from './wordPairs.js';
 import {
   bindSocketToPlayer,
   deleteRoom,
@@ -13,6 +16,7 @@ import {
   unbindSocket,
 } from '../store/roomStore.js';
 import type {
+  ChatMessage,
   Player,
   PrivateRoundInfo,
   PublicRoomState,
@@ -29,11 +33,25 @@ function getDefaultRoomSettings(): RoundSettings {
     civilianWord: '',
     spyWord: '',
     spyCount: null,
+    category: null,
   };
+}
+
+function normalizeAvatar(avatar: string | undefined): string {
+  if (!avatar) {
+    return DEFAULT_AVATAR;
+  }
+
+  if (!AVATAR_OPTIONS.includes(avatar as (typeof AVATAR_OPTIONS)[number])) {
+    throw new Error('Unsupported avatar selection.');
+  }
+
+  return avatar;
 }
 
 function createPlayer(input: {
   name: string;
+  avatar: string;
   socketId: string;
   roomCode: string;
   isHost: boolean;
@@ -42,6 +60,7 @@ function createPlayer(input: {
     id: generateId(),
     socketId: input.socketId,
     name: input.name,
+    avatar: input.avatar,
     roomCode: input.roomCode,
     isHost: input.isHost,
     connected: true,
@@ -62,6 +81,7 @@ function createLobbyRound(previousRoundNumber = 0): RoundState {
     votes: [],
     revealedSpyIds: [],
     winnerSide: null,
+    chatMessages: [],
   };
 }
 
@@ -74,7 +94,18 @@ function normalizeRoundSettings(room: Room, input?: Partial<RoundSettings>): Rou
     civilianWord: input?.civilianWord?.trim() ?? room.settings.civilianWord,
     spyWord: input?.spyWord?.trim() ?? room.settings.spyWord,
     spyCount: input?.spyCount ?? room.settings.spyCount,
+    category:
+      input && 'category' in input
+        ? input.category ?? null
+        : room.settings.category,
   };
+
+  if (
+    merged.category !== null &&
+    !CATEGORIES.includes(merged.category as (typeof CATEGORIES)[number])
+  ) {
+    throw new Error('Unknown word category.');
+  }
 
   if ((merged.civilianWord && !merged.spyWord) || (!merged.civilianWord && merged.spyWord)) {
     throw new Error('Set both civilian and spy words together, or leave both empty.');
@@ -231,6 +262,7 @@ export function toPublicRoomState(room: Room): PublicRoomState {
     players: room.players.map((player) => ({
       id: player.id,
       name: player.name,
+      avatar: player.avatar,
       isHost: player.isHost,
       connected: player.connected,
       score: player.score,
@@ -248,16 +280,23 @@ export function toPublicRoomState(room: Room): PublicRoomState {
         room.round.phase === GAME_PHASES.RESULT ? room.round.revealedSpyIds : [],
       winnerSide:
         room.round.phase === GAME_PHASES.RESULT ? room.round.winnerSide : null,
+      chatMessages: room.round.chatMessages,
     },
   };
 }
 
-export function createRoom(input: { playerName: string; socketId: string }) {
+export function createRoom(input: {
+  playerName: string;
+  avatar?: string;
+  socketId: string;
+}) {
   const trimmedName = input.playerName?.trim();
 
   if (!trimmedName) {
     throw new Error('Player name is required.');
   }
+
+  const avatar = normalizeAvatar(input.avatar);
 
   let roomCode = generateRoomCode(ROOM_CODE_LENGTH);
   while (getRoom(roomCode)) {
@@ -266,6 +305,7 @@ export function createRoom(input: { playerName: string; socketId: string }) {
 
   const host = createPlayer({
     name: trimmedName,
+    avatar,
     socketId: input.socketId,
     roomCode,
     isHost: true,
@@ -290,6 +330,7 @@ export function createRoom(input: { playerName: string; socketId: string }) {
 export function joinRoom(input: {
   playerName: string;
   roomCode: string;
+  avatar?: string;
   socketId: string;
 }) {
   const trimmedName = input.playerName?.trim();
@@ -302,6 +343,8 @@ export function joinRoom(input: {
   if (!normalizedRoomCode) {
     throw new Error('Room code is required.');
   }
+
+  const avatar = normalizeAvatar(input.avatar);
 
   const room = ensureRoomExists(normalizedRoomCode);
 
@@ -319,6 +362,7 @@ export function joinRoom(input: {
 
   const player = createPlayer({
     name: trimmedName,
+    avatar,
     socketId: input.socketId,
     roomCode: normalizedRoomCode,
     isHost: false,
@@ -342,7 +386,15 @@ export function startGame(input: { roomCode: string; playerId: string | null }) 
   }
 
   const selectedSettings = normalizeRoundSettings(room);
-  const wordPair = pickRandom(WORD_PAIRS);
+  const pool = selectedSettings.category
+    ? WORD_PAIRS.filter((pair) => pair.category === selectedSettings.category)
+    : WORD_PAIRS;
+
+  if (pool.length === 0) {
+    throw new Error('No word pairs available for this category.');
+  }
+
+  const wordPair = pickRandom(pool);
   const speakingOrder = shuffle(activePlayers.map((player) => player.id));
   const maxSpyCount = getMaxSpyCount(activePlayers.length);
   const spyCount = selectedSettings.spyCount ?? 1;
@@ -362,6 +414,7 @@ export function startGame(input: { roomCode: string; playerId: string | null }) 
     votes: [],
     revealedSpyIds: [],
     winnerSide: null,
+    chatMessages: [],
   };
 
   saveRoom(room);
@@ -450,6 +503,60 @@ export function submitVote(input: {
     votingComplete,
     result,
   };
+}
+
+export function sendChatMessage(input: {
+  roomCode: string;
+  playerId: string | null;
+  message: string;
+}) {
+  const room = ensureRoomExists(input.roomCode);
+  const player = ensurePlayer(room, input.playerId);
+
+  if (!player.connected) {
+    throw new Error('Disconnected players cannot send messages.');
+  }
+
+  if (room.round.phase !== GAME_PHASES.SPEAKING) {
+    throw new Error('Chat is only available during the speaking phase.');
+  }
+
+  const currentTurnPlayerId = room.round.speakingOrder[room.round.currentTurnIndex] || null;
+  const isCurrentSpeaker = currentTurnPlayerId === player.id;
+
+  if (!player.isHost && !isCurrentSpeaker) {
+    throw new Error('Only the current speaker or the host can chat right now.');
+  }
+
+  const trimmed = input.message?.trim() ?? '';
+
+  if (!trimmed) {
+    throw new Error('Message cannot be empty.');
+  }
+
+  if (trimmed.length > MAX_CHAT_MESSAGE_LENGTH) {
+    throw new Error(`Message is too long. Keep it under ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
+  }
+
+  const role: Role = room.round.spyPlayerIds.includes(player.id) ? 'spy' : 'civilian';
+  const ownWord = (role === 'spy' ? room.round.spyWord : room.round.civilianWord)?.trim();
+
+  if (ownWord && trimmed.toLowerCase().includes(ownWord.toLowerCase())) {
+    throw new Error('Your message cannot include your secret word.');
+  }
+
+  const chatMessage: ChatMessage = {
+    id: generateId(),
+    playerId: player.id,
+    playerName: player.name,
+    avatar: player.avatar,
+    message: trimmed,
+    timestamp: Date.now(),
+  };
+
+  room.round.chatMessages.push(chatMessage);
+  saveRoom(room);
+  return room;
 }
 
 export function prepareNextRound(input: { roomCode: string; playerId: string | null }) {

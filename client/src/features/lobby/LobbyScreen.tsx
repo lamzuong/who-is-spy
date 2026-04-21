@@ -3,6 +3,7 @@ import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { Panel } from '../../components/Panel';
 import { PlayerList } from '../../components/PlayerList';
+import { CATEGORY_OPTIONS } from '../../lib/categories';
 import type { PublicRoomState, RoundSettings } from '../../types/game';
 
 interface LobbyScreenProps {
@@ -24,6 +25,7 @@ export function LobbyScreen({
 }: LobbyScreenProps) {
   const isHost = room.hostPlayerId === playerId;
   const [settings, setSettings] = useState<RoundSettings>(room.settings);
+  const [codeCopied, setCodeCopied] = useState(false);
   const maxSpyCount = getMaxSpyCount(room.players.filter((player) => player.connected).length);
 
   useEffect(() => {
@@ -35,10 +37,36 @@ export function LobbyScreen({
     onUpdateSettings(nextSettings);
   };
 
+  const copyRoomCode = async () => {
+    if (!navigator.clipboard?.writeText) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(room.code);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 1500);
+    } catch {
+      // silent — clipboard access denied
+    }
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <Panel
-        title={`Room ${room.code}`}
+        title={
+          <span className="inline-flex items-center gap-2">
+            <span>Room {room.code}</span>
+            <button
+              type="button"
+              onClick={copyRoomCode}
+              aria-label={codeCopied ? 'Room code copied' : 'Copy room code'}
+              className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-night transition hover:bg-slate-50"
+            >
+              {codeCopied ? '✓' : 'Copy'}
+            </button>
+          </span>
+        }
         subtitle="Wait for at least 3 players. The host controls the start."
         action={
           <Badge tone={room.canStartGame ? 'accent' : 'warning'}>
@@ -68,6 +96,32 @@ export function LobbyScreen({
         >
           {isHost ? (
             <div className="mb-5 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                  Category
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-night"
+                  value={settings.category ?? ''}
+                  onChange={(event) =>
+                    updateSettings({
+                      ...settings,
+                      category: event.target.value || null,
+                    })
+                  }
+                >
+                  <option value="">Random (any category)</option>
+                  {CATEGORY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-slate-500">
+                  Ignored when you supply custom civilian and spy words below.
+                </p>
+              </label>
+
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">
                   Civilian word

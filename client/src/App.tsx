@@ -115,24 +115,24 @@ export default function App() {
     setState((current) => ({ ...current, toast: message }));
   };
 
-  const createRoom = (playerName: string) => {
+  const createRoom = (playerName: string, avatar: string) => {
     if (!playerName.trim()) {
       updateToast('Enter your name before creating a room.');
       return;
     }
 
     setState((current) => ({ ...current, playerName }));
-    socket.emit(SOCKET_EVENTS.CREATE_ROOM, { playerName });
+    socket.emit(SOCKET_EVENTS.CREATE_ROOM, { playerName, avatar });
   };
 
-  const joinRoom = (playerName: string, roomCode: string) => {
+  const joinRoom = (playerName: string, roomCode: string, avatar: string) => {
     if (!playerName.trim() || !roomCode.trim()) {
       updateToast('Enter both your name and a room code.');
       return;
     }
 
     setState((current) => ({ ...current, playerName }));
-    socket.emit(SOCKET_EVENTS.JOIN_ROOM, { playerName, roomCode });
+    socket.emit(SOCKET_EVENTS.JOIN_ROOM, { playerName, roomCode, avatar });
   };
 
   const startGame = () => {
@@ -153,6 +153,15 @@ export default function App() {
   const nextTurn = () => {
     if (state.room) {
       socket.emit(SOCKET_EVENTS.NEXT_TURN, { roomCode: state.room.code });
+    }
+  };
+
+  const sendChatMessage = (message: string) => {
+    if (state.room) {
+      socket.emit(SOCKET_EVENTS.SEND_CHAT_MESSAGE, {
+        roomCode: state.room.code,
+        message,
+      });
     }
   };
 
@@ -198,15 +207,9 @@ export default function App() {
         </div>
 
         {room ? (
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Room</p>
-              <p className="text-lg font-semibold text-night">{room.code}</p>
-            </div>
-            <Button variant="ghost" onClick={leaveRoom}>
-              Leave
-            </Button>
-          </div>
+          <Button variant="ghost" onClick={leaveRoom}>
+            Leave
+          </Button>
         ) : null}
       </header>
 
@@ -236,6 +239,7 @@ export default function App() {
             playerId={state.playerId || ''}
             privateInfo={state.privateInfo}
             onNextTurn={nextTurn}
+            onSendChatMessage={sendChatMessage}
           />
         ) : null}
 

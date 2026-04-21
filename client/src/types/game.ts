@@ -6,11 +6,22 @@ export interface RoundSettings {
   civilianWord: string;
   spyWord: string;
   spyCount: number | null;
+  category: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  avatar: string;
+  message: string;
+  timestamp: number;
 }
 
 export interface PublicPlayer {
   id: string;
   name: string;
+  avatar: string;
   isHost: boolean;
   connected: boolean;
   score: number;
@@ -27,6 +38,7 @@ export interface PublicRoundState {
   totalEligibleVoters: number;
   revealedSpyIds: string[];
   winnerSide: WinnerSide;
+  chatMessages: ChatMessage[];
 }
 
 export interface PublicRoomState {
